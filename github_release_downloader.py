@@ -68,19 +68,24 @@ REPOSITORIES = [
     {"owner": "ggml-org", "name": "llama.cpp", "channel": "Pre-release"},
     {"owner": "earendil-works", "name": "pi", "channel": "Stable"},
     {"owner": "anomalyco", "name": "opencode", "channel": "Stable"},
-    {"owner": "morluto", "name": "rea", "channel": "Stable"},
     {"owner": "can1357", "name": "oh-my-pi", "channel": "Stable"},
-    {"owner": "NousResearch", "name": "hermes-agent", "channel": "Stable"},
-    {"owner": "Mintplex-Labs", "name": "anything-llm", "channel": "Stable"},
-    {"owner": "mostlygeek", "name": "llama-swap", "channel": "Stable"},
-    {"owner": "n8n-io", "name": "n8n", "channel": "Stable"},
-    {"owner": "open-webui", "name": "open-webui", "channel": "Stable"},
-    {"owner": "howdeploy", "name": "choirboy-prompt", "channel": "Stable"},
+    {"owner": "storytold", "name": "photocraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "lightcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "filmcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "effectcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "soundcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "designcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "vectorcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "pdfcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "wordcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "gridcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "deckcraft", "channel": "Stable"},
+    {"owner": "storytold", "name": "cadcraft", "channel": "Stable"},
     {"owner": "Comfy-Org", "name": "ComfyUI", "channel": "Stable"},
 ]
 
 # Literal, case-insensitive substrings applied to release asset names only.
-DEFAULT_EXCLUSIONS = ["arm64", "aarch64", "riscv", "darwin", ".dmg", "-mac", "sycl", "s390x", "android", "musl", "xcframework", ".zsync", ".pkg.tar.zst", "-ui.tar.gz"]
+DEFAULT_EXCLUSIONS = ["arm64", "aarch64", "riscv", "darwin", ".dmg"]
 DEFAULT_MAX_WORKERS = 2
 DEFAULT_RETRIES = 2  # number of attempts in automatic mode 3
 DEFAULT_ERROR_MODE = 3  # 1=skip, 2=ask, 3=retry once then skip
@@ -443,8 +448,8 @@ def run() -> int:
         return 1
 
     say("\n========== Download options ==========")
-    advanced = prompt_yes_no("Apply filename filters and optional download restrictions?", True)
-    options = {"exclusions": [], "includes": [], "include_msi": False, "source_zip": True, "readme": True}
+    advanced = prompt_yes_no("Apply filename filters and optional download restrictions?", False)
+    options = {"exclusions": [], "includes": [], "include_msi": True, "source_zip": True, "readme": True}
     if advanced:
         if prompt_yes_no(f"Apply configured exclusions ({', '.join(DEFAULT_EXCLUSIONS)})?", True):
             options["exclusions"].extend(DEFAULT_EXCLUSIONS)
@@ -453,7 +458,7 @@ def run() -> int:
         if prompt_yes_no("Download only assets matching specified keywords?", False):
             while not options["includes"]:
                 options["includes"] = [x.strip() for x in input("Include keywords (comma-separated): ").split(",") if x.strip()]
-        options["include_msi"] = prompt_yes_no("Download .msi files?", False)
+        options["include_msi"] = prompt_yes_no("Download .msi files?", True)
         options["source_zip"] = prompt_yes_no("Download release source ZIP?", True)
         options["readme"] = prompt_yes_no("Download repository README.md?", True)
     workers = prompt_int("Maximum simultaneous file downloads per repository", DEFAULT_MAX_WORKERS)
