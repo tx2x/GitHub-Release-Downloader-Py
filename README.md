@@ -1,21 +1,26 @@
 # GitHub Release Downloader Py
 
-An interactive Python utility for downloading GitHub Release assets from one or more repositories. It supports Stable and Pre-release channels, direct release-tag URLs, filename filters, parallel downloads, resumable transfers, optional GitHub authentication, and diagnostic logging.
+An interactive Python utility for downloading GitHub Release assets from one or more repositories. It supports Stable and Pre-release channels, direct release-tag URLs, filename filters, parallel downloads, resumable transfers, optional GitHub authentication, diagnostic logging, and live visual progress.
 
-**Python implementation:** `github_release_downloader.py`  
-**Dependencies:** Python standard library only. `aria2` is not required.
+**Main script:** `github_release_downloader.py`  
+**Progress UI:** [Rich](https://github.com/Textualize/rich)  
+**aria2:** not required.
 
 ## Features
 
 - Download the newest published **Stable** release or newest published **Pre-release** for configured repositories.
-- Download one specific release by pasting its GitHub tag URL.
+- Download a specific release by pasting its GitHub tag URL.
 - Select multiple repositories with number lists and ranges (for example `1, 2, 5-8`), select all, or remove selected entries.
-- Configure repositories and their release channels in the `REPOSITORIES` list near the top of the Python file.
+- Configure repositories and release channels in the `REPOSITORIES` list near the top of the Python file.
 - Optional case-insensitive filename exclusion and include-only keyword filters.
 - Independently include or exclude `.msi`, source ZIP, and repository `README.md` downloads.
 - Download several files concurrently per repository; repositories are processed sequentially.
+- **Per-file live progress bars** with percentage (when size is known), transferred size, transfer speed, and estimated time remaining.
+- **Overall progress bar** showing completed files against the total queue across all selected repositories.
+- Keep individual file progress visible while other downloads continue in parallel.
 - Stream large files to disk instead of loading them into memory.
-- Resume interrupted downloads when the server supports HTTP Range requests. Partial data is kept in `.part` files.
+- Resume interrupted downloads when the server supports HTTP Range requests. Partial data is kept in `.part` files and included in the displayed progress.
+- Show an activity indicator instead of a misleading percentage when the remote file size is unknown.
 - Automatically use `GH_TOKEN`, `GITHUB_TOKEN`, or an existing GitHub CLI login (`gh auth token`).
 - Log run events and failures to `GitHub-Release-Downloader.log`; temporary signed URL query strings and bearer tokens are redacted.
 - Three error-handling modes: skip and continue, ask what to do, or automatically retry once and then skip.
@@ -24,21 +29,35 @@ An interactive Python utility for downloading GitHub Release assets from one or 
 
 ## Requirements
 
-- Python **3.10 or newer** (uses modern standard-library and typing features).
+- Python **3.10 or newer**.
 - Internet access to the GitHub API and GitHub release download hosts.
-- No third-party Python packages are required.
+- The `rich` package for the terminal progress display.
 
-## Quick start
+## Installation
 
 1. Download or clone this repository.
 2. Open a terminal in the project folder.
-3. Run:
+3. Install the dependency:
+
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+
+4. Start the downloader:
 
    ```bash
    python github_release_downloader.py
    ```
 
-On Windows, `py github_release_downloader.py` also works when the Python launcher is installed.
+On Windows, `py -m pip install -r requirements.txt` and `py github_release_downloader.py` also work when the Python launcher is installed.
+
+## Progress display
+
+During downloads, Rich renders a separate row for every queued file. Each row shows the filename, progress bar, transferred/total size, current speed, and estimated remaining time when the server provides a content length. Unknown-size transfers show an activity indicator until the final size is known.
+
+The **Overall progress** row tracks completed files across all selected repositories, not just the current repository. It advances when a file finishes successfully or is explicitly skipped. A file being retried does not count as completed. If a download is resumed from an existing `.part` file, its existing byte count is reflected in that file's progress bar. Multiple files can update their rows concurrently.
+
+For the best display, run the program in a modern terminal (Windows Terminal, PowerShell 7, macOS Terminal, or a UTF-8 terminal emulator). If output is redirected to a file or the terminal does not support control sequences, the visual display may be reduced.
 
 ## Configuration
 
@@ -102,7 +121,7 @@ Choose one of the following at startup:
 | Mode | Behavior |
 |---|---|
 | `1` | Log and notify about a failed file, skip it, and continue. |
-| `2` | Stop scheduling new work for the failed batch and ask whether to retry, skip, or stop the remaining run. |
+| `2` | Ask whether to retry, skip, or stop the remaining run after a failure. |
 | `3` | Automatically retry a failed download once, then skip it and continue. This is the default. |
 
 Errors are printed to the console and recorded in `GitHub-Release-Downloader.log`. A non-zero process exit code is returned when tasks were skipped after errors or the run was stopped by the user.
@@ -120,6 +139,10 @@ Downloads are written to `filename.part` until the transfer completes. The downl
 A non-empty final file is treated as already downloaded and skipped. If you suspect that a completed file is corrupt, remove it manually before rerunning. SHA-256 is checked only when GitHub's release asset metadata supplies a digest.
 
 ## Troubleshooting
+
+### Progress display is not visible or looks broken
+
+Install the dependency with `python -m pip install -r requirements.txt` and run the script in a modern interactive terminal. Some IDE output panes and redirected terminals do not support Rich's live terminal rendering.
 
 ### GitHub API returns 403 or a rate-limit error
 
@@ -139,14 +162,14 @@ Install Python 3.10 or newer and check the version with `python --version` (or `
 
 ## Safety and responsible use
 
-- The program reads public GitHub release metadata and downloads files from URLs returned by GitHub. It does not publish releases, modify repositories, or change GitHub account settings.
+- The program reads GitHub release metadata and downloads files from URLs returned by GitHub. It does not publish releases, modify repositories, or change GitHub account settings.
 - Downloaded executables and archives are third-party files. Review the upstream project and verify signatures/checksums where available before running them.
 - Downloading a file does not grant redistribution rights. Follow the upstream project's license and terms.
 - Use reasonable concurrency and respect GitHub API limits and upstream hosting policies.
 - This project is not affiliated with, endorsed by, or sponsored by GitHub.
 
 ## Credits
-The code was written using web version of ChatGPT ??.
+The code was written using web version of ChatGPT 😁.
 
 ## License
 
