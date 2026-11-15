@@ -6,6 +6,8 @@ An interactive command-line tool for downloading GitHub Release assets from sele
 **Version:** `1.3.1`  
 **Python dependencies:** Standard library only; no third-party packages are required.
 
+![Screenshot](Screenshot.png)
+
 ## Features
 
 - Download the latest published **Stable** or **Pre-release** release from configured repositories.
