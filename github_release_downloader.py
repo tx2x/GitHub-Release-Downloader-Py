@@ -24,7 +24,7 @@ from typing import Any
 
 APP_NAME = "GitHub-Release-Downloader-Py"
 API = "https://api.github.com"
-USER_AGENT = f"{APP_NAME}/1.3.1"
+USER_AGENT = f"{APP_NAME}/1.3.2"
 CHUNK_SIZE = 1024 * 1024
 
 # ---------------------------------------------------------------------------
@@ -289,7 +289,8 @@ class TerminalProgress:
     def __init__(self, tasks: list[DownloadTask], overall_total: int, overall_done: int = 0):
         self.lock = threading.RLock()
         self.tasks = {id(t): {"name": t.filename, "done": 0, "total": t.size_bytes,
-                              "status": "Queued", "started": time.monotonic(), "last": 0.0}
+                              "status": "Queued", "started": time.monotonic(),
+                              "final_speed": None}
                       for t in tasks}
         self.overall_total = overall_total
         self.overall_done = overall_done
@@ -344,8 +345,11 @@ class TerminalProgress:
         with self.lock:
             item = self.tasks.get(task_id)
             if item:
-                if success and item["total"]:
-                    item["done"] = item["total"]
+                if success:
+                    if item["total"]:
+                        item["done"] = item["total"]
+                    elapsed = max(0.1, time.monotonic() - item["started"])
+                    item["final_speed"] = item["done"] / elapsed
                 item["status"] = status
             self.overall_done += 1
             self.render(force=True)
@@ -369,7 +373,7 @@ class TerminalProgress:
                 filled = min(width, int(width * pct / 100))
                 bar = self._bar(filled, width, "green")
                 elapsed = max(0.1, now - item["started"])
-                speed = done / elapsed
+                speed = item["final_speed"] if item["final_speed"] is not None else done / elapsed
                 eta = (total - done) / speed if speed > 0 and done < total else 0
                 size_text = self.color(f"{self._size(done)}/{self._size(total)}", "white")
                 pct_text = self.color(f"{pct:5.1f}%", "cyan", bold=True)
