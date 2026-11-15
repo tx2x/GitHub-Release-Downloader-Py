@@ -3,7 +3,7 @@
 An interactive command-line tool for downloading GitHub Release assets from selected repositories. It supports Stable and Pre-release channels, direct release-tag URLs, filename filters, parallel downloads, resumable transfers, SHA-256 verification, and error logging.
 
 **Main file:** `github_release_downloader.py`  
-**Version:** `1.3.1`  
+**Version:** `1.3.3`  
 **Python dependencies:** Standard library only; no third-party packages are required.
 
 ![Screenshot](Screenshot.png)
