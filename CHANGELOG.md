@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.4] - Windows console compatibility and adaptive progress layout
+
+### Fixed
+
+- Added automatic Windows Virtual Terminal Processing detection and enablement through the Windows console API, preventing ANSI escape sequences from being printed literally in supported classic consoles.
+- Added a plain-text progress fallback when VT processing cannot be enabled or the output is not an interactive terminal.
+- Made progress rows more compact on narrower terminal windows to reduce line wrapping and cursor-positioning issues.
+
+### Changed
+
+- Updated the application User-Agent version to 1.3.4.
+- Updated README terminal compatibility and progress-display documentation.
+
 ## [1.3.3] - Separate working indicator from file rows
 
 ### Fixed
