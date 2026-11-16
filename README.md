@@ -3,7 +3,7 @@
 An interactive command-line tool for downloading GitHub Release assets from selected repositories. It supports Stable and Pre-release channels, direct release-tag URLs, filename filters, parallel downloads, resumable transfers, SHA-256 verification, and error logging.
 
 **Main file:** `github_release_downloader.py`  
-**Version:** `1.3.3`  
+**Version:** `1.3.4`  
 **Python dependencies:** Standard library only; no third-party packages are required.
 
 ![Screenshot](Screenshot.png)
@@ -19,6 +19,9 @@ An interactive command-line tool for downloading GitHub Release assets from sele
 - Independently enable or disable MSI installers, the release source ZIP, and the repository README.
 - Choose the maximum number of simultaneous file downloads and the number of parallel streams per file (default: 2).
 - Show multi-color per-file progress and overall queue progress using ANSI terminal sequences and the Python standard library.
+- Enable Windows Virtual Terminal (VT) processing automatically when supported, including classic Windows console hosts.
+- Fall back to plain-text progress snapshots when ANSI/VT control sequences are unavailable.
+- Adapt progress-row detail and filename width to the current terminal width to reduce unwanted line wrapping.
 - Use parallel HTTP Range requests for supported servers, with automatic single-stream fallback when ranges are unavailable.
 - Resume incomplete downloads on a later run.
 - Verify SHA-256 when GitHub provides an asset digest.
@@ -167,11 +170,13 @@ The error-handling mode is not requested interactively. The active mode is displ
 
 ## Progress display and colors
 
-The terminal shows an overall queue progress bar and an individual row for each file. When the remote file size is known, the row includes percentage, transferred/total bytes, transfer speed, and ETA. For unknown file sizes, an activity indicator and transferred byte count are shown.
+The terminal shows an overall queue progress bar and an individual row for each file. When the remote file size is known, the row includes percentage, transferred/total bytes, transfer speed, and ETA. For unknown file sizes, the separate `Working` status line indicates active transfers and each file row shows its transferred byte count.
 
 Different elements use different ANSI colors: progress bars, percentages, speed, ETA, filename/byte information, and status indicators are visually distinct. The overall progress is also highlighted. No external terminal or color package is used.
 
-Colors are enabled automatically in interactive terminals. They are disabled when output is redirected and can be disabled by setting `NO_COLOR=1` or changing `USE_ANSI_COLORS` to `False`.
+Colors and cursor-based progress updates are enabled automatically in interactive terminals when ANSI/VT support is available. On Windows, the script attempts to enable `ENABLE_VIRTUAL_TERMINAL_PROCESSING` through the Windows console API. If that operation is unavailable or fails, the downloader switches to plain-text progress snapshots and does not emit ANSI cursor-control sequences. This fallback keeps downloading functional on older or restricted console hosts.
+
+The progress layout also checks the available terminal width and uses a more compact row on narrower windows. Colors can be disabled by setting `NO_COLOR=1` or changing `USE_ANSI_COLORS` to `False`.
 
 Parallel range downloading is used when the file size is known, the file is sufficiently large, and the server supports HTTP Range. Otherwise, the downloader automatically falls back to a single stream.
 
