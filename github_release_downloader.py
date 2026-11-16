@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures as futures
+import ctypes
 import hashlib
 import json
 import logging
@@ -24,7 +25,7 @@ from typing import Any
 
 APP_NAME = "GitHub-Release-Downloader-Py"
 API = "https://api.github.com"
-USER_AGENT = f"{APP_NAME}/1.3.2"
+USER_AGENT = f"{APP_NAME}/1.3.4"
 CHUNK_SIZE = 1024 * 1024
 
 # ---------------------------------------------------------------------------
@@ -295,9 +296,37 @@ class TerminalProgress:
         self.overall_total = overall_total
         self.overall_done = overall_done
         self.tty = sys.stdout.isatty()
-        self.colors_enabled = self.tty and USE_ANSI_COLORS and "NO_COLOR" not in os.environ
+        self.cursor_enabled = self.tty and self._enable_virtual_terminal()
+        self.colors_enabled = (self.cursor_enabled and USE_ANSI_COLORS
+                               and "NO_COLOR" not in os.environ)
         self.last_render = 0.0
         self.render_lines = 0
+
+    @staticmethod
+    def _enable_virtual_terminal() -> bool:
+        """Enable ANSI/VT processing on Windows consoles when possible."""
+        if os.name != "nt":
+            return True
+        try:
+            kernel32 = ctypes.windll.kernel32
+            kernel32.GetStdHandle.argtypes = [ctypes.c_uint32]
+            kernel32.GetStdHandle.restype = ctypes.c_void_p
+            kernel32.GetConsoleMode.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+            kernel32.GetConsoleMode.restype = ctypes.c_int
+            kernel32.SetConsoleMode.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+            kernel32.SetConsoleMode.restype = ctypes.c_int
+            stdout_handle = kernel32.GetStdHandle(ctypes.c_uint32(-11).value)
+            if not stdout_handle or stdout_handle == ctypes.c_void_p(-1).value:
+                return False
+            mode = ctypes.c_uint32()
+            if not kernel32.GetConsoleMode(stdout_handle, ctypes.byref(mode)):
+                return False
+            enable_vt = 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            if mode.value & enable_vt:
+                return True
+            return bool(kernel32.SetConsoleMode(stdout_handle, mode.value | enable_vt))
+        except (AttributeError, OSError, ValueError):
+            return False
 
     def color(self, value: str, shade: str, *, bold: bool = False) -> str:
         if not self.colors_enabled:
@@ -358,18 +387,32 @@ class TerminalProgress:
         now = time.monotonic()
         lines = []
         overall_pct = (self.overall_done / self.overall_total * 100) if self.overall_total else 100
-        overall_width = 24
+        try:
+            terminal_width = shutil.get_terminal_size((100, 24)).columns
+        except OSError:
+            terminal_width = 100
+        compact = terminal_width < 130
+        overall_width = max(8, min(24, terminal_width - 55))
         overall_filled = min(overall_width, int(overall_width * overall_pct / 100))
         overall_bar = self._bar(overall_filled, overall_width, "cyan")
         overall_label = self.color("Overall", "bold", bold=True)
         overall_count = self.color(f"{self.overall_done}/{self.overall_total} files", "white")
         overall_percent = self.color(f"{overall_pct:5.1f}%", "cyan", bold=True)
         lines.append(f"{overall_label} {overall_bar} {overall_count} ({overall_percent})")
+
+        active_count = sum(1 for item in self.tasks.values()
+                           if item["status"] in {"Downloading", "Retrying"})
+        if active_count:
+            spinner = ".oO@"[int(now * 5) % 4]
+            working = self.color(f"Working {spinner}", "cyan", bold=True)
+            active_label = "download" if active_count == 1 else "downloads"
+            lines.append(f"{working} — {active_count} active {active_label}")
+
         for item in self.tasks.values():
             total, done = item["total"], item["done"]
             if total:
                 pct = min(100.0, done / total * 100)
-                width = 22
+                width = max(8, min(22, terminal_width - (76 if not compact else 58)))
                 filled = min(width, int(width * pct / 100))
                 bar = self._bar(filled, width, "green")
                 elapsed = max(0.1, now - item["started"])
@@ -379,15 +422,20 @@ class TerminalProgress:
                 pct_text = self.color(f"{pct:5.1f}%", "cyan", bold=True)
                 speed_text = self.color(f"{self._size(int(speed))}/s", "yellow", bold=True)
                 eta_text = self.color(f"ETA {int(eta)}s", "magenta")
-                detail = f"{size_text}  {pct_text}  {speed_text}  {eta_text}"
+                if compact:
+                    detail = f"{pct_text} {speed_text}"
+                else:
+                    detail = f"{size_text}  {pct_text}  {speed_text}  {eta_text}"
             else:
-                spinner = ".oO@"[int(now * 5) % 4]
-                bar = self.color(f"[working {spinner}...........]", "cyan", bold=True)
+                # Unknown-size files still get a stable row; activity is shown
+                # once in the dedicated Working line above, not over filenames.
+                bar = self._bar(0, max(8, min(22, terminal_width - 58)), "gray")
                 detail = self.color(f"{self._size(done)} transferred", "white")
             name = item["name"]
-            if len(name) > 34:
-                name = name[:31] + "..."
-            name_text = self.color(f"{name:<34}", "white")
+            name_width = 34 if not compact else max(12, min(24, terminal_width - 62))
+            if len(name) > name_width:
+                name = name[:max(1, name_width - 3)] + "..."
+            name_text = self.color(f"{name:<{name_width}}", "white")
             status = item["status"]
             status_color = {
                 "Downloaded": "green", "Downloading": "cyan", "Retrying": "yellow",
@@ -395,7 +443,7 @@ class TerminalProgress:
             }.get(status, "white")
             status_text = self.color(status, status_color, bold=True)
             lines.append(f"{bar} {name_text} {detail}  {status_text}")
-        if self.tty:
+        if self.cursor_enabled:
             if self.render_lines:
                 sys.stdout.write(f"\x1b[{self.render_lines}A")
             for line in lines:
@@ -403,7 +451,8 @@ class TerminalProgress:
             self.render_lines = len(lines)
             sys.stdout.flush()
         else:
-            # Keep redirected logs readable: emit only periodic, uncolored snapshots.
+            # Without VT support (or when redirected), avoid cursor/ANSI control
+            # sequences and emit occasional plain-text snapshots instead.
             if force or now - self.last_render >= 10:
                 for line in lines:
                     say(line)
