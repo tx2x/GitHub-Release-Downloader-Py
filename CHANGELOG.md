@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.5] - Per-file sizes and downloaded-data summaries
+
+### Added
+
+- Display the expected size of every file in its progress row, including compact terminal layouts. If the size is unavailable, explicitly show `Size unknown` together with the amount transferred so far.
+- Display the total size of successfully downloaded files after each release.
+- Display the combined size of successfully downloaded files across all releases in the final session summary.
+- Read the repository README size from GitHub metadata when available.
+
+### Changed
+
+- Calculate release and session download-volume summaries from the actual sizes of successfully saved files. Files that already existed and were skipped are not counted.
+- Updated the application User-Agent version to 1.3.5.
+
 ## [1.3.4] - Windows console compatibility and adaptive progress layout
 
 ### Fixed

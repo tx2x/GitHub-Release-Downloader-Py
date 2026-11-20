@@ -3,10 +3,10 @@
 An interactive command-line tool for downloading GitHub Release assets from selected repositories. It supports Stable and Pre-release channels, direct release-tag URLs, filename filters, parallel downloads, resumable transfers, SHA-256 verification, and error logging.
 
 **Main file:** `github_release_downloader.py`  
-**Version:** `1.3.4`  
+**Version:** `1.3.5`  
 **Python dependencies:** Standard library only; no third-party packages are required.
 
-![Screenshot](Screenshot.png)
+![GitHub Release Downloader Py screenshot](docs/screenshot.png)
 
 ## Features
 
@@ -170,7 +170,7 @@ The error-handling mode is not requested interactively. The active mode is displ
 
 ## Progress display and colors
 
-The terminal shows an overall queue progress bar and an individual row for each file. When the remote file size is known, the row includes percentage, transferred/total bytes, transfer speed, and ETA. For unknown file sizes, the separate `Working` status line indicates active transfers and each file row shows its transferred byte count.
+The terminal shows an overall queue progress bar and an individual row for each file. Every row displays the expected file size when it is available from GitHub metadata or the download response, along with percentage, transferred/total bytes, transfer speed, and ETA where the layout permits. If the size cannot be determined, the row explicitly shows `Size unknown` and the amount transferred so far. The separate `Working` status line indicates active transfers.
 
 Different elements use different ANSI colors: progress bars, percentages, speed, ETA, filename/byte information, and status indicators are visually distinct. The overall progress is also highlighted. No external terminal or color package is used.
 
@@ -201,7 +201,7 @@ The script also recognizes `GITHUB_TOKEN` and can reuse an authenticated GitHub 
 
 Downloads are saved in folders named `<repository>-<release-tag>` beside the script. Temporary download data uses `.part` or `.partN` suffixes. Successfully completed parallel parts are merged into the final file; incomplete data is retained for a later resume attempt where possible.
 
-Errors and diagnostic events are appended to `GitHub-Release-Downloader.log`. At the end of a session, the script reports successful downloads and lists files or repositories that could not be downloaded or prepared, including missing releases and unavailable README files.
+Errors and diagnostic events are appended to `GitHub-Release-Downloader.log`. After each release, the script reports the total size of files successfully downloaded for that release. The final session summary reports the combined size of successfully downloaded files across all processed releases, followed by the success/error counts and any files or repositories that could not be downloaded or prepared. Existing files that were skipped are not included in these download-volume totals.
 
 After the session, choose whether to return to the start menu or exit the program.
 

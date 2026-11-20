@@ -25,7 +25,7 @@ from typing import Any
 
 APP_NAME = "GitHub-Release-Downloader-Py"
 API = "https://api.github.com"
-USER_AGENT = f"{APP_NAME}/1.3.4"
+USER_AGENT = f"{APP_NAME}/1.3.5"
 CHUNK_SIZE = 1024 * 1024
 
 # ---------------------------------------------------------------------------
@@ -418,19 +418,20 @@ class TerminalProgress:
                 elapsed = max(0.1, now - item["started"])
                 speed = item["final_speed"] if item["final_speed"] is not None else done / elapsed
                 eta = (total - done) / speed if speed > 0 and done < total else 0
-                size_text = self.color(f"{self._size(done)}/{self._size(total)}", "white")
+                size_text = self.color(f"Size {self._size(total)}", "white")
+                transferred_text = self.color(f"{self._size(done)}/{self._size(total)}", "white")
                 pct_text = self.color(f"{pct:5.1f}%", "cyan", bold=True)
                 speed_text = self.color(f"{self._size(int(speed))}/s", "yellow", bold=True)
                 eta_text = self.color(f"ETA {int(eta)}s", "magenta")
                 if compact:
-                    detail = f"{pct_text} {speed_text}"
+                    detail = f"{size_text} {pct_text} {speed_text}"
                 else:
-                    detail = f"{size_text}  {pct_text}  {speed_text}  {eta_text}"
+                    detail = f"{size_text} ({transferred_text})  {pct_text}  {speed_text}  {eta_text}"
             else:
                 # Unknown-size files still get a stable row; activity is shown
                 # once in the dedicated Working line above, not over filenames.
                 bar = self._bar(0, max(8, min(22, terminal_width - 58)), "gray")
-                detail = self.color(f"{self._size(done)} transferred", "white")
+                detail = self.color(f"Size unknown ({self._size(done)} transferred)", "white")
             name = item["name"]
             name_width = 34 if not compact else max(12, min(24, terminal_width - 62))
             if len(name) > name_width:
@@ -639,7 +640,8 @@ def build_tasks(repo: dict, release: dict | None, folder: Path, options: dict) -
             info = request_json(f"{API}/repos/{repo['owner']}/{repo['name']}/readme")
             if info.get("download_url"):
                 tasks.append(DownloadTask(full_name, folder, info["download_url"],
-                                          unique_filename("README.md", used), "README"))
+                                          unique_filename("README.md", used), "README",
+                                          size_bytes=info.get("size")))
         except Exception as exc:
             message = f"{full_name} README.md unavailable: {exc}"
             say(f"  [NOTICE] {message}")
@@ -760,8 +762,15 @@ def run_download_session(selected: list[dict]) -> int:
     success = download_errors = 0
     stopped = False
     overall_completed = 0
+    session_downloaded_bytes = 0
     for plan_index, (repo, tag, folder, tasks) in enumerate(plans):
-        if stopped or not tasks:
+        if stopped:
+            continue
+        release_downloaded_bytes = 0
+        if not tasks:
+            say(f"\n========== {repo['owner']}/{repo['name']} [{tag}] ==========")
+            say("No files needed downloading for this release.")
+            say(f"Downloaded data for this release: {TerminalProgress._size(release_downloaded_bytes)}")
             continue
         say(f"\n========== Downloading {repo['owner']}/{repo['name']} [{tag}] ==========")
         progress = TerminalProgress(tasks, total, overall_completed)
@@ -785,6 +794,12 @@ def run_download_session(selected: list[dict]) -> int:
                 if ok:
                     success += 1
                     progress.complete_file(ids[id(task)], True, "Downloaded")
+                    try:
+                        file_bytes = task.destination.stat().st_size
+                    except OSError:
+                        file_bytes = task.size_bytes or 0
+                    release_downloaded_bytes += file_bytes
+                    session_downloaded_bytes += file_bytes
                     log("INFO", detail)
                     continue
                 download_errors += 1
@@ -810,10 +825,12 @@ def run_download_session(selected: list[dict]) -> int:
                 for task in later_tasks:
                     not_downloaded.append((task.repository, f"{task.filename}: not started because the run was stopped"))
         say(f"Finished {repo['owner']}/{repo['name']}.")
+        say(f"Downloaded data for this release: {TerminalProgress._size(release_downloaded_bytes)}")
         if stopped:
             break
 
     say("\n========== Download summary ==========")
+    say(f"Total downloaded data across all releases: {TerminalProgress._size(session_downloaded_bytes)}")
     say(f"Successfully downloaded: {success}")
     say(f"Not downloaded: {len(not_downloaded)}")
     say(f"Download errors (including retries): {download_errors}")
